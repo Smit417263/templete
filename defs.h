@@ -125,6 +125,7 @@ int 		exitS(int status);
 int 		waitS(int * status);
 int 		waitpid(int pid, int * status, int options);
 
+void 		set_prior(int prior_lvl);
 // swtch.S
 void            swtch(struct context**, struct context*);
 

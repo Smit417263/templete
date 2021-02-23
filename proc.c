@@ -88,6 +88,7 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  p->priority = 10;
 
   release(&ptable.lock);
 
@@ -447,6 +448,24 @@ waitpid(int pid, int * status, int options)
   }
 }
 
+
+
+void
+set_prior(int prior_lvl){
+
+struct proc *curproc = myproc();
+
+ if(prior_lvl < 0){
+   prior_lvl = 0;
+ }
+ else if(prior_lvl > 31){
+   prior_lvl = 31;
+ }
+
+ curproc->priority = prior_lvl;
+
+}
+
 //PAGEBREAK: 42
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
@@ -461,30 +480,43 @@ scheduler(void)
   struct proc *p;
   struct cpu *c = mycpu();
   c->proc = 0;
-  
+ 
+ 
   for(;;){
     // Enable interrupts on this processor.
     sti();
 
+    int max_priority = 31;
     // Loop over process table looking for process to run.
     acquire(&ptable.lock);
+ 
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+  	if(p->priority < max_priority && p->state == RUNNABLE){
+		max_priority = p->priority;
+	}
+    }
+
+
+   for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE)
         continue;
+
 
       // Switch to chosen process.  It is the process's job
       // to release ptable.lock and then reacquire it
       // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
+	if(max_priority == p->priority){
+     	 c->proc = p;
+      	 switchuvm(p);
+      	 p->state = RUNNING;
 
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
+      	 swtch(&(c->scheduler), p->context);
+     	 switchkvm();
 
       // Process is done running for now.
       // It should have changed its p->state before coming back.
-      c->proc = 0;
+     	 c->proc = 0;
+	}
     }
     release(&ptable.lock);
 
